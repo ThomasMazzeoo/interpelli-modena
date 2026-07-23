@@ -1,0 +1,53 @@
+name: Interpelli Scraper Automazione
+
+on:
+  # Esegui ogni ora dal Lunedì al Venerdì, tra le 5 e le 17 UTC (circa 7:00-19:00 in Italia)
+  schedule:
+    - cron: '0 5-17 * * 1-5'
+  
+  # Questo permette di far partire lo script "a mano" cliccando su un pulsante su GitHub
+  workflow_dispatch:
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Copia il codice dal repository alla macchina virtuale
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+
+      # 2. Prepara Python 3.10
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      # 3. Installa le librerie necessarie
+      - name: Installazione Dipendenze
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      # 4. Esegui lo script passando le credenziali in modo sicuro
+      - name: Esecuzione Scraper
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          CDC_PREFERITE: ${{ vars.CDC_PREFERITE }}
+        run: python scraper.py
+
+      # 5. Salva (Commit) il file interpelli.json nel repository se ci sono modifiche
+      - name: Commit e Push dei nuovi dati
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Aggiunge il file json (se esiste)
+          git add interpelli.json
+          
+          # Se non ci sono cambiamenti, non fa nulla ed esce con successo (|| exit 0)
+          git commit -m "🤖 Aggiornamento automatico interpelli.json" || exit 0
+          
+          # Carica i dati sul repository
+          git push
