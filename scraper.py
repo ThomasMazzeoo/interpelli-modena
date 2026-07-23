@@ -15,7 +15,7 @@ DATA_FILE = "interpelli.json"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Variabile globale che verrà riempita dal menu interattivo
+# Variabile globale
 CDC_DI_INTERESSE = []
 
 # ==========================================
@@ -24,11 +24,10 @@ CDC_DI_INTERESSE = []
 def chiedi_cdc_utente():
     global CDC_DI_INTERESSE
     
-    # 1. Controlla se siamo su GitHub Actions (leggendo una variabile d'ambiente)
+    # 1. Controlla se siamo su GitHub Actions (leggendo la variabile)
     cdc_github = os.getenv("CDC_PREFERITE")
     
     if cdc_github is not None:
-        # SIAMO SU GITHUB: Legge le CDC dal cloud senza bloccare il codice
         if cdc_github.strip():
             cdc_inserite = [c.strip().upper() for c in cdc_github.split(",")]
             CDC_DI_INTERESSE = [re.sub(r'[^A-Z0-9]', '', c) for c in cdc_inserite if c]
@@ -38,7 +37,7 @@ def chiedi_cdc_utente():
             print("🤖 [Cloud Mode] Nessuna CDC specifica. Modalità 'Solo Database'.")
         return
 
-    # 2. ALTRIMENTI SIAMO SUL TUO PC: Mostra il menu interattivo
+    # 2. ALTRIMENTI SIAMO SUL TUO PC
     print("\n" + "="*50)
     print("🎓 SISTEMA MONITORAGGIO INTERPELLI - UST MODENA")
     print("="*50)
@@ -50,36 +49,6 @@ def chiedi_cdc_utente():
 
     cdc_inserite = [c.strip().upper() for c in input_utente.split(",")]
     CDC_DI_INTERESSE = [re.sub(r'[^A-Z0-9]', '', c) for c in cdc_inserite if c]
-    """Mostra un menu interattivo per far decidere all'utente quali CDC cercare."""
-    global CDC_DI_INTERESSE
-    
-    print("\n" + "="*50)
-    print("🎓 SISTEMA MONITORAGGIO INTERPELLI - UST MODENA")
-    print("="*50)
-    print("Inserisci le Classi di Concorso (CDC) per cui vuoi ricevere le notifiche Telegram.")
-    print("Puoi inserirne una sola (es. A041) o più di una separate da virgola (es. A041, A026, A027).")
-    print("Premi INVIO lasciando vuoto per non ricevere notifiche mirate (salva solo il database).")
-    
-    input_utente = input("\n👉 Le tue CDC: ")
-    
-    if not input_utente.strip():
-        print("Nessuna CDC specifica inserita. Modalità 'Solo Salvataggio Database' attiva.")
-        CDC_DI_INTERESSE = []
-        return
-
-    # Pulisce l'input, divide le CDC separate da virgola e le formatta in maiuscolo
-    cdc_inserite = [c.strip().upper() for c in input_utente.split(",")]
-    
-    # Rimuove eventuali caratteri strani e controlla il formato
-    cdc_valide = []
-    for cdc in cdc_inserite:
-        cdc_pulita = re.sub(r'[^A-Z0-9]', '', cdc)
-        if cdc_pulita:
-            cdc_valide.append(cdc_pulita)
-            
-    CDC_DI_INTERESSE = cdc_valide
-    print(f"\n✅ Ricerca impostata per le seguenti CDC: {', '.join(CDC_DI_INTERESSE)}\n")
-
 
 def invia_notifica_telegram(titolo, cdc_trovate, link_interpello, scadenza="Non specificata"):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
@@ -130,7 +99,6 @@ def estrai_cdc(testo):
 # 3. MOTORE PRINCIPALE (SCRAPER)
 # ==========================================
 def esegui_scraper():
-    # 0. Mostra il Menu all'utente
     chiedi_cdc_utente()
     
     print("🚀 Avvio scraper UST Modena con Paginazione...")
@@ -198,19 +166,18 @@ def esegui_scraper():
             storico.insert(0, nuovo_interpello)
             url_visti.add(url_avviso)
             
-            # Controllo Telegram: invia se trova le CDC richieste
-            # (Se l'utente non ha inserito CDC, CDC_DI_INTERESSE è vuoto, quindi non invia nulla)
+            # Notifica Telegram
             if CDC_DI_INTERESSE and any(cdc in CDC_DI_INTERESSE for cdc in cdc_presenti):
                 invia_notifica_telegram(titolo, cdc_presenti, url_avviso)
                 
             time.sleep(0.5) 
 
-        # INTERRUZIONE INTELLIGENTE
+        # Interruzione intelligente
         if nuovi_nella_pagina == 0 and len(storico) > 0:
             print("🛑 Tutti gli avvisi di questa pagina sono già nel database. Interrompo la paginazione.")
             break
 
-        # Cerca il bottone "Articoli meno recenti"
+        # Cerca bottone "Articoli meno recenti"
         bottone_next = None
         for a in soup.find_all('a', href=True):
             if 'articoli meno recenti' in a.get_text(strip=True).lower():
@@ -225,7 +192,6 @@ def esegui_scraper():
             print("🏁 Ultima pagina raggiunta.")
             url_attuale = None
 
-    # Salvataggio finale
     if nuovi_interpelli_totali > 0:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(storico, f, indent=4, ensure_ascii=False)
