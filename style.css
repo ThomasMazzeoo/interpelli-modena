@@ -1,0 +1,43 @@
+/* Custom styles oltre a Tailwind */
+
+/* Animazione per far pulsare il bordo verde o il badge dei nuovi interpelli */
+@keyframes pulse-green {
+    0% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+    }
+}
+
+.card-nuova {
+    border: 2px solid #22c55e; /* Verde Tailwind */
+    animation: pulse-green 2s infinite;
+    position: relative;
+}
+
+.badge-nuovo {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    background-color: #22c55e;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Stile per una transizione morbida al passaggio del mouse */
+.interpello-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.interpello-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}

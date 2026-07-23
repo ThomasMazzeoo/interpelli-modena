@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Interpelli - UST Modena</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome per le icone -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Nostro CSS personalizzato -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 font-sans">
+
+    <!-- Header -->
+    <header class="bg-blue-800 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <h1 class="text-3xl font-bold tracking-tight">
+                <i class="fa-solid fa-graduation-cap mr-2"></i> Interpelli UST Modena
+            </h1>
+            <p class="mt-2 text-sm text-blue-200">Aggiornamento automatico per supplenze scolastiche.</p>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        
+        <!-- Barra dei Filtri e Ricerca -->
+        <div class="bg-white p-4 rounded-lg shadow mb-8 flex flex-col md:flex-row gap-4 justify-between items-center border-l-4 border-blue-600">
+            
+            <!-- Ricerca Testuale -->
+            <div class="w-full md:w-1/2 relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fa-solid fa-search text-gray-400"></i>
+                </div>
+                <input type="text" id="searchInput" class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-gray-50 placeholder-gray-500 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out" placeholder="Cerca scuola, istituto, parola chiave...">
+            </div>
+
+            <!-- Filtro CDC -->
+            <div class="w-full md:w-1/3 flex items-center gap-2">
+                <label for="cdcFilter" class="font-semibold text-gray-700 whitespace-nowrap"><i class="fa-solid fa-filter mr-1"></i> Filtra CDC:</label>
+                <select id="cdcFilter" class="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 bg-gray-50 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                    <option value="ALL">Tutte le Classi</option>
+                    <!-- Le opzioni CDC verranno caricate qui da JavaScript -->
+                </select>
+            </div>
+            
+        </div>
+
+        <!-- Contenitore Statistiche -->
+        <div class="mb-4 text-gray-600 text-sm flex justify-between">
+            <span id="risultatiCounter">Caricamento in corso...</span>
+            <span class="flex items-center"><span class="w-3 h-3 bg-green-500 rounded-full inline-block mr-1 pulsate"></span> = Nuovi (ultime 48h)</span>
+        </div>
+
+        <!-- Griglia delle Card (Interpelli) -->
+        <div id="interpelliContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Le card verranno generate qui da JavaScript -->
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white text-center py-4 mt-12">
+        <p class="text-sm">Sistema automatizzato con <i class="fa-brands fa-github"></i> GitHub Actions e Python.</p>
+    </footer>
+
+    <!-- Il nostro JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
