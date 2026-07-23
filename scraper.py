@@ -15,50 +15,50 @@ DATA_FILE = "interpelli.json"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# Variabile globale
-CDC_DI_INTERESSE = []
+# Variabile globale che ora accetta sia CDC che nomi di scuole/parole chiave
+PAROLE_CHIAVE = []
 
 # ==========================================
 # 2. FUNZIONI DI UTILITA' E MENU
 # ==========================================
-def chiedi_cdc_utente():
-    global CDC_DI_INTERESSE
+def carica_parole_chiave():
+    global PAROLE_CHIAVE
     
-    # 1. Controlla se siamo su GitHub Actions (leggendo la variabile)
-    cdc_github = os.getenv("CDC_PREFERITE")
+    # Legge le parole da GitHub Actions (Variabile CDC_PREFERITE)
+    parole_github = os.getenv("CDC_PREFERITE")
     
-    if cdc_github is not None:
-        if cdc_github.strip():
-            cdc_inserite = [c.strip().upper() for c in cdc_github.split(",")]
-            CDC_DI_INTERESSE = [re.sub(r'[^A-Z0-9]', '', c) for c in cdc_inserite if c]
-            print(f"🤖 [Cloud Mode] Ricerca CDC impostata: {', '.join(CDC_DI_INTERESSE)}")
+    if parole_github is not None:
+        if parole_github.strip():
+            # Separiamo per virgola e togliamo gli spazi in eccesso
+            PAROLE_CHIAVE = [p.strip().upper() for p in parole_github.split(",") if p.strip()]
+            print(f"🤖 [Cloud Mode] Ricerca Parole/CDC impostata: {', '.join(PAROLE_CHIAVE)}")
         else:
-            CDC_DI_INTERESSE = []
-            print("🤖 [Cloud Mode] Nessuna CDC specifica. Modalità 'Solo Database'.")
+            PAROLE_CHIAVE = []
+            print("🤖 [Cloud Mode] Nessuna parola specifica. Modalità 'Solo Database'.")
         return
 
-    # 2. ALTRIMENTI SIAMO SUL TUO PC
+    # SUL PC LOCALE
     print("\n" + "="*50)
     print("🎓 SISTEMA MONITORAGGIO INTERPELLI - UST MODENA")
     print("="*50)
-    input_utente = input("\n👉 Le tue CDC (es. A041, A026) o premi INVIO per tutte: ")
+    print("Puoi inserire CDC (es. A041) o nomi di scuole/città (es. BAGGI, CARPI).")
+    input_utente = input("👉 Le tue chiavi separate da virgola (o INVIO per tutte): ")
     
     if not input_utente.strip():
-        CDC_DI_INTERESSE = []
+        PAROLE_CHIAVE = []
         return
 
-    cdc_inserite = [c.strip().upper() for c in input_utente.split(",")]
-    CDC_DI_INTERESSE = [re.sub(r'[^A-Z0-9]', '', c) for c in cdc_inserite if c]
+    PAROLE_CHIAVE = [p.strip().upper() for p in input_utente.split(",") if p.strip()]
 
-def invia_notifica_telegram(titolo, cdc_trovate, link_interpello, scadenza="Non specificata"):
+def invia_notifica_telegram(titolo, motivi_match, link_interpello):
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         return
 
-    cdc_str = ", ".join(cdc_trovate) if cdc_trovate else "Sconosciuta"
+    motivo_str = ", ".join(motivi_match)
     messaggio = (
         f"🚨 <b>NUOVO INTERPELLO RILEVATO!</b>\n\n"
-        f"📚 <b>CDC:</b> {cdc_str}\n"
-        f"📝 <b>Titolo:</b> {titolo}\n"
+        f"🎯 <b>Match trovato per:</b> {motivo_str}\n"
+        f"📝 <b>Titolo:</b> {titolo}\n\n"
         f"🔗 <a href='{link_interpello}'>Clicca qui per aprire l'avviso</a>"
     )
 
@@ -67,7 +67,7 @@ def invia_notifica_telegram(titolo, cdc_trovate, link_interpello, scadenza="Non 
     
     try:
         requests.post(url, data=payload)
-        print(f"  ✅ Notifica Telegram inviata!")
+        print(f"  ✅ Notifica Telegram inviata! (Match: {motivo_str})")
     except Exception as e:
         print(f"  ❌ Errore invio Telegram: {e}")
 
@@ -90,6 +90,7 @@ def estrai_dettagli_pagina(url_pagina):
     return dettagli
 
 def estrai_cdc(testo):
+    # Continua a estrarre matematicamente le CDC per popolare correttamente il database e la dashboard
     pattern = r'\b[A-Za-z][\-\s]*\d{2,3}\b'
     trovati = re.findall(pattern, testo)
     cdc_pulite = set(re.sub(r'[^A-Za-z0-9]', '', c).upper() for c in trovati)
@@ -99,9 +100,9 @@ def estrai_cdc(testo):
 # 3. MOTORE PRINCIPALE (SCRAPER)
 # ==========================================
 def esegui_scraper():
-    chiedi_cdc_utente()
+    carica_parole_chiave()
     
-    print("🚀 Avvio scraper UST Modena con Paginazione...")
+    print("🚀 Avvio scraper UST Modena con Ricerca Universale...")
     
     storico = []
     if os.path.exists(DATA_FILE):
@@ -125,10 +126,10 @@ def esegui_scraper():
         try:
             risposta = requests.get(url_attuale, headers=headers, timeout=10)
             if risposta.status_code != 200:
-                print(f"❌ Errore caricamento pagina: HTTP {risposta.status_code}")
+                print(f"❌ Errore HTTP {risposta.status_code}")
                 break
         except Exception as e:
-            print(f"❌ Errore di rete: {e}")
+            print(f"❌ Errore rete: {e}")
             break
 
         soup = BeautifulSoup(risposta.text, 'html.parser')
@@ -166,18 +167,29 @@ def esegui_scraper():
             storico.insert(0, nuovo_interpello)
             url_visti.add(url_avviso)
             
-            # Notifica Telegram
-            if CDC_DI_INTERESSE and any(cdc in CDC_DI_INTERESSE for cdc in cdc_presenti):
-                invia_notifica_telegram(titolo, cdc_presenti, url_avviso)
+            # --- NUOVA LOGICA DI NOTIFICA UNIVERSALE ---
+            motivi_match = []
+            titolo_maiuscolo = titolo.upper()
+            
+            if PAROLE_CHIAVE:
+                for parola in PAROLE_CHIAVE:
+                    # Se è una CDC normale (es A041) guarda se il tool matematico l'ha trovata,
+                    # altrimenti cerca brutalmente la parola nel testo (es BAGGI, CARPI).
+                    if parola in cdc_presenti or parola in titolo_maiuscolo:
+                        motivi_match.append(parola)
+            
+            # Se ha trovato almeno una corrispondenza, manda la notifica!
+            if motivi_match:
+                invia_notifica_telegram(titolo, motivi_match, url_avviso)
                 
             time.sleep(0.5) 
 
-        # Interruzione intelligente
+        # Interruzione
         if nuovi_nella_pagina == 0 and len(storico) > 0:
-            print("🛑 Tutti gli avvisi di questa pagina sono già nel database. Interrompo la paginazione.")
+            print("🛑 Tutti gli avvisi di questa pagina sono già nel database. Stop.")
             break
 
-        # Cerca bottone "Articoli meno recenti"
+        # Prossima pagina
         bottone_next = None
         for a in soup.find_all('a', href=True):
             if 'articoli meno recenti' in a.get_text(strip=True).lower():
@@ -189,15 +201,14 @@ def esegui_scraper():
             numero_pagina += 1
             time.sleep(1) 
         else:
-            print("🏁 Ultima pagina raggiunta.")
             url_attuale = None
 
     if nuovi_interpelli_totali > 0:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(storico, f, indent=4, ensure_ascii=False)
-        print(f"\n💾 Database aggiornato! Aggiunti {nuovi_interpelli_totali} nuovi interpelli.")
+        print(f"\n💾 Aggiornato! Aggiunti {nuovi_interpelli_totali} nuovi.")
     else:
-        print("\n💤 Nessun nuovo interpello trovato.")
+        print("\n💤 Nessun nuovo interpello.")
 
 if __name__ == "__main__":
     esegui_scraper()
