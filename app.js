@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. CARICAMENTO DATI
 async function caricaDati() {
     try {
-        // Aggiungo un parametro random per forzare il browser a prendere sempre i dati freschi (evita la cache)
         const response = await fetch('interpelli.json?' + new Date().getTime());
         
         if (!response.ok) throw new Error("Errore nel caricamento del file JSON");
@@ -21,7 +20,7 @@ async function caricaDati() {
         tuttiInterpelli = await response.json();
         
         popolaMenuCDC(tuttiInterpelli);
-        filtraDati(); // Chiamo filtraDati qui invece di renderizzaCard, così applica subito l'ordinamento
+        filtraDati(); 
         
     } catch (error) {
         console.error(error);
@@ -38,14 +37,12 @@ function popolaMenuCDC(dati) {
     const select = document.getElementById('cdcFilter');
     const cdcUniche = new Set();
 
-    // Estrai tutte le CDC disponibili dai dati
     dati.forEach(item => {
         if (item.cdc && Array.isArray(item.cdc)) {
             item.cdc.forEach(c => cdcUniche.add(c));
         }
     });
 
-    // Ordina alfabeticamente e aggiungi al menu
     Array.from(cdcUniche).sort().forEach(cdc => {
         const option = document.createElement('option');
         option.value = cdc;
@@ -60,32 +57,31 @@ function filtraDati() {
     const cdcScelta = document.getElementById('cdcFilter').value;
 
     let risultatiFiltrati = tuttiInterpelli.filter(item => {
-        // Controllo Testo (cerca nel titolo)
         const matchTesto = item.titolo.toLowerCase().includes(testoSito);
-        
-        // Controllo CDC
         let matchCDC = true; 
         if (cdcScelta !== "ALL") {
             matchCDC = item.cdc && item.cdc.includes(cdcScelta);
         }
-
         return matchTesto && matchCDC;
     });
 
-    // --- NUOVA LOGICA DI ORDINAMENTO (Dal più recente al meno recente) ---
+    // --- NUOVA LOGICA DI ORDINAMENTO (INFALLIBILE DAL PIU RECENTE) ---
     risultatiFiltrati.sort((a, b) => {
-        // Convertiamo la data in un oggetto Date per confrontarla
-        let dataA = new Date(a.data);
-        let dataB = new Date(b.data);
+        // Usa la stringa testuale della data per l'ordinamento se è nel formato YYYY-MM-DD
+        // Se le date sono stringhe ISO (es. "2026-06-15" e "2025-09-16"), il confronto testuale funziona perfettamente
+        let dataA = a.data || "";
+        let dataB = b.data || "";
         
-        // Ordine decrescente (più recente prima)
-        if (dataB > dataA) return 1;
-        if (dataB < dataA) return -1;
+        if (dataA > dataB) return -1; // Se A è più recente (più grande) di B, mettilo prima
+        if (dataA < dataB) return 1;  // Se A è più vecchio di B, mettilo dopo
         
-        // Se la data di pubblicazione è identica, ordina per data di rilevamento dello scraper
-        let rilevamentoA = new Date(a.data_rilevamento || 0);
-        let rilevamentoB = new Date(b.data_rilevamento || 0);
-        return rilevamentoB - rilevamentoA;
+        // Se la data di pubblicazione è identica, usa la data di rilevamento dello scraper
+        let rilA = a.data_rilevamento || "";
+        let rilB = b.data_rilevamento || "";
+        if (rilA > rilB) return -1;
+        if (rilA < rilB) return 1;
+        
+        return 0;
     });
 
     renderizzaCard(risultatiFiltrati);
@@ -96,7 +92,7 @@ function renderizzaCard(dati) {
     const container = document.getElementById('interpelliContainer');
     const counter = document.getElementById('risultatiCounter');
     
-    container.innerHTML = ''; // Pulisci contenitore
+    container.innerHTML = '';
     counter.innerHTML = `Mostrando <strong>${dati.length}</strong> interpelli.`;
 
     if (dati.length === 0) {
@@ -111,7 +107,7 @@ function renderizzaCard(dati) {
     const dataOdierna = new Date();
 
     dati.forEach(item => {
-        // --- LOGICA "NUOVO" (Verifica se è stato rilevato nelle ultime 48 ore) ---
+        // --- LOGICA "NUOVO" ---
         let isNuovo = false;
         if (item.data_rilevamento) {
             const dataRilevamento = new Date(item.data_rilevamento);
@@ -121,12 +117,10 @@ function renderizzaCard(dati) {
             }
         }
 
-        // Formattazione delle CDC
         const badgeCDC = item.cdc && item.cdc.length > 0 
             ? item.cdc.map(c => `<span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-700/10 mr-1">${c}</span>`).join('')
             : `<span class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">Generico</span>`;
 
-        // Formattazione dei link (PDF e Form)
         let linksHTML = `<a href="${item.url}" target="_blank" class="text-blue-600 hover:text-blue-800 text-sm font-medium"><i class="fa-solid fa-globe"></i> Apri Pagina</a>`;
         
         if (item.pdf_links && item.pdf_links.length > 0) {
@@ -136,14 +130,16 @@ function renderizzaCard(dati) {
             linksHTML += `<br><a href="${item.form_links[0]}" target="_blank" class="text-green-600 hover:text-green-800 text-sm font-medium mt-1 inline-block"><i class="fa-solid fa-list-check"></i> Compila Form</a>`;
         }
 
-        // Formattiamo la data per vederla in formato italiano (GG/MM/AAAA)
+        // --- FORMATTAZIONE DATA ITALIANA SICURA ---
         let dataVisualizzata = item.data;
-        try {
-            const d = new Date(item.data);
-            dataVisualizzata = d.toLocaleDateString('it-IT');
-        } catch(e) {}
+        if (item.data && item.data.includes('-')) {
+            // Se la data è "2025-09-16", la dividiamo e la rigiriamo in "16/09/2025"
+            const parti = item.data.split('-');
+            if (parti.length === 3) {
+                dataVisualizzata = `${parti[2]}/${parti[1]}/${parti[0]}`;
+            }
+        }
 
-        // Costruzione HTML della Card
         const cardHTML = `
             <div class="interpello-card bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col h-full ${isNuovo ? 'card-nuova' : ''}">
                 ${isNuovo ? '<span class="badge-nuovo">NUOVO</span>' : ''}
