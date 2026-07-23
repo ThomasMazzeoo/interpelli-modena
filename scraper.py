@@ -9,7 +9,12 @@ from datetime import datetime
 # ==========================================
 # 1. CONFIGURAZIONE
 # ==========================================
-URL_UST = "https://mo.istruzioneer.gov.it/category/interpelli-personale-docente-2025-26/"
+# Legge l'URL dalle variabili di ambiente (utile per cambiare anno scolastico senza toccare il codice)
+URL_UST = os.getenv("URL_UST_MODENA")
+
+# Seleziona un fallback di emergenza se la variabile non esiste (es. quando testi sul tuo PC locale)
+if not URL_UST:
+    URL_UST = "https://mo.istruzioneer.gov.it/category/interpelli-personale-docente-2025-26/"
 DATA_FILE = "interpelli.json"
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
