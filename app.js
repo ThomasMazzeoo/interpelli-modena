@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 1. CARICAMENTO DATI
 async function caricaDati() {
     try {
-        // Aggiungo un parametro random (cache-bust) per forzare il browser a prendere sempre i dati freschi
+        // Aggiungo un parametro random per forzare il browser a prendere sempre i dati freschi (evita la cache)
         const response = await fetch('interpelli.json?' + new Date().getTime());
         
         if (!response.ok) throw new Error("Errore nel caricamento del file JSON");
@@ -21,7 +21,7 @@ async function caricaDati() {
         tuttiInterpelli = await response.json();
         
         popolaMenuCDC(tuttiInterpelli);
-        renderizzaCard(tuttiInterpelli);
+        filtraDati(); // Chiamo filtraDati qui invece di renderizzaCard, così applica subito l'ordinamento
         
     } catch (error) {
         console.error(error);
@@ -54,23 +54,38 @@ function popolaMenuCDC(dati) {
     });
 }
 
-// 3. LOGICA DI FILTRAGGIO
+// 3. LOGICA DI FILTRAGGIO E ORDINAMENTO
 function filtraDati() {
     const testoSito = document.getElementById('searchInput').value.toLowerCase();
     const cdcScelta = document.getElementById('cdcFilter').value;
 
-    const risultatiFiltrati = tuttiInterpelli.filter(item => {
+    let risultatiFiltrati = tuttiInterpelli.filter(item => {
         // Controllo Testo (cerca nel titolo)
         const matchTesto = item.titolo.toLowerCase().includes(testoSito);
         
         // Controllo CDC
-        let matchCDC = true; // Se è "ALL", è sempre vero
+        let matchCDC = true; 
         if (cdcScelta !== "ALL") {
-            // È vero se l'array cdc dell'item contiene la cdc scelta
             matchCDC = item.cdc && item.cdc.includes(cdcScelta);
         }
 
         return matchTesto && matchCDC;
+    });
+
+    // --- NUOVA LOGICA DI ORDINAMENTO (Dal più recente al meno recente) ---
+    risultatiFiltrati.sort((a, b) => {
+        // Convertiamo la data in un oggetto Date per confrontarla
+        let dataA = new Date(a.data);
+        let dataB = new Date(b.data);
+        
+        // Ordine decrescente (più recente prima)
+        if (dataB > dataA) return 1;
+        if (dataB < dataA) return -1;
+        
+        // Se la data di pubblicazione è identica, ordina per data di rilevamento dello scraper
+        let rilevamentoA = new Date(a.data_rilevamento || 0);
+        let rilevamentoB = new Date(b.data_rilevamento || 0);
+        return rilevamentoB - rilevamentoA;
     });
 
     renderizzaCard(risultatiFiltrati);
@@ -121,13 +136,20 @@ function renderizzaCard(dati) {
             linksHTML += `<br><a href="${item.form_links[0]}" target="_blank" class="text-green-600 hover:text-green-800 text-sm font-medium mt-1 inline-block"><i class="fa-solid fa-list-check"></i> Compila Form</a>`;
         }
 
+        // Formattiamo la data per vederla in formato italiano (GG/MM/AAAA)
+        let dataVisualizzata = item.data;
+        try {
+            const d = new Date(item.data);
+            dataVisualizzata = d.toLocaleDateString('it-IT');
+        } catch(e) {}
+
         // Costruzione HTML della Card
         const cardHTML = `
             <div class="interpello-card bg-white rounded-lg shadow-sm border border-gray-200 p-5 flex flex-col h-full ${isNuovo ? 'card-nuova' : ''}">
                 ${isNuovo ? '<span class="badge-nuovo">NUOVO</span>' : ''}
                 
                 <div class="text-xs text-gray-500 mb-2 flex justify-between items-center">
-                    <span><i class="fa-regular fa-calendar"></i> Pubblicato: ${item.data}</span>
+                    <span><i class="fa-regular fa-calendar"></i> Pubblicato: <span class="font-bold text-gray-700">${dataVisualizzata}</span></span>
                 </div>
                 
                 <h3 class="text-lg font-bold text-gray-900 mb-3 leading-tight">${item.titolo}</h3>
